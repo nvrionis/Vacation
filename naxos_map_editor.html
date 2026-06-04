@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>My Naxos Map — Editor</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#0d1b2a;color:#fff;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+header{background:linear-gradient(135deg,#0d1b2a,#1a3a5c);padding:10px 18px;display:flex;align-items:center;gap:14px;border-bottom:2px solid #c9a84c;flex-shrink:0;flex-wrap:wrap}
+header h1{font-size:1rem;color:#c9a84c}
+header p{font-size:0.68rem;color:#aac;margin-top:1px}
+.hdr-btns{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.hbtn{padding:6px 13px;border-radius:7px;font-size:0.75rem;font-weight:700;cursor:pointer;border:2px solid;transition:all .2s;font-family:inherit}
+.hbtn-add{background:#c9a84c;color:#0d1b2a;border-color:#c9a84c}
+.hbtn-add:hover{background:#e0bb60}
+.hbtn-save{background:#27ae60;color:#fff;border-color:#27ae60}
+.hbtn-save:hover{background:#2ecc71}
+.hbtn-clear{background:transparent;color:#e57373;border-color:#e57373}
+.hbtn-clear:hover{background:#e57373;color:#fff}
+.main{display:flex;flex:1;overflow:hidden}
+#map{flex:1}
+.panel{width:340px;background:#0f2035;border-left:2px solid #1e3a55;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;transition:width .3s}
+.panel.collapsed{width:0;border:none;overflow:hidden}
+.panel-tabs{display:flex;border-bottom:2px solid #1e3a55;flex-shrink:0}
+.tab{flex:1;padding:9px 0;text-align:center;font-size:0.73rem;font-weight:700;cursor:pointer;color:#778;border-bottom:3px solid transparent;transition:all .2s}
+.tab.active{color:#c9a84c;border-bottom-color:#c9a84c;background:#0d1b2a}
+.tab-content{flex:1;overflow-y:auto;padding:14px;display:none}
+.tab-content.active{display:block}
+.fs{margin-bottom:10px}
+.fs label{font-size:0.7rem;color:#aac;display:block;margin-bottom:3px;font-weight:600;letter-spacing:.4px}
+.fs input,.fs textarea,.fs select{width:100%;padding:7px 9px;border-radius:6px;border:1px solid #1e3a55;background:#152638;color:#dde;font-size:0.78rem;font-family:inherit;outline:none;transition:border-color .2s}
+.fs input:focus,.fs textarea:focus,.fs select:focus{border-color:#c9a84c}
+.fs textarea{resize:vertical;min-height:52px}
+.frow{display:flex;gap:8px}
+.frow .fs{flex:1}
+.color-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.swatch{width:28px;height:28px;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:border-color .15s;flex-shrink:0}
+.swatch.on{border-color:#fff}
+.submit-btn{width:100%;padding:9px;margin-top:6px;border-radius:7px;background:#c9a84c;color:#0d1b2a;font-size:0.82rem;font-weight:800;border:none;cursor:pointer;font-family:inherit}
+.submit-btn:hover{background:#e0bb60}
+.prop-list{display:flex;flex-direction:column;gap:7px}
+.prop-card{background:#152638;border-radius:8px;padding:9px 10px;border-left:4px solid #c9a84c;border-top:1px solid #1e3a55;border-right:1px solid #1e3a55;border-bottom:1px solid #1e3a55}
+.pc-rank{font-size:0.65rem;font-weight:800;color:#c9a84c}
+.pc-name{font-size:0.78rem;font-weight:700;color:#dde;margin:2px 0}
+.pc-meta{font-size:0.67rem;color:#88a}
+.pc-actions{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
+.pb{padding:3px 8px;border-radius:4px;font-size:0.65rem;font-weight:700;cursor:pointer;border:1px solid;font-family:inherit}
+.pb-e{color:#c9a84c;border-color:#c9a84c;background:transparent}
+.pb-e:hover{background:#c9a84c;color:#0d1b2a}
+.pb-d{color:#e57373;border-color:#e57373;background:transparent}
+.pb-d:hover{background:#e57373;color:#fff}
+.pb-n{color:#aac;border-color:#334;background:transparent}
+.pb-n:hover{background:#334}
+.map-hint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);background:rgba(13,27,42,0.92);color:#c9a84c;padding:6px 14px;border-radius:20px;font-size:0.72rem;font-weight:600;z-index:900;pointer-events:none;border:1px solid #c9a84c;white-space:nowrap;display:none}
+.map-hint.on{display:block}
+.leaflet-popup-content-wrapper{border-radius:10px;padding:0;overflow:hidden;min-width:250px;max-width:300px}
+.leaflet-popup-content{margin:0!important}
+.pop-head{padding:9px 12px;font-size:.82rem;font-weight:700;color:#fff;line-height:1.3}
+.pop-body{padding:9px 12px 11px;background:#fff}
+.pop-row{display:flex;gap:5px;margin-bottom:4px;font-size:.74rem;color:#333;align-items:flex-start}
+.pop-img{width:100%;height:140px;object-fit:cover;display:block}
+.pop-link{display:block;margin-top:8px;text-align:center;padding:7px;border-radius:6px;font-size:.76rem;font-weight:700;color:#fff;text-decoration:none}
+.panel-toggle{position:absolute;top:10px;right:10px;z-index:999;background:#1a3a5c;color:#c9a84c;border:2px solid #c9a84c;border-radius:8px;padding:6px 12px;font-size:.75rem;font-weight:700;cursor:pointer;font-family:inherit}
+#loading{position:fixed;inset:0;background:#0d1b2a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:14px}
+#loading p{color:#c9a84c}
+.spinner{width:38px;height:38px;border:4px solid #1a3a5c;border-top-color:#c9a84c;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;color:#445;padding:30px 16px;font-size:.8rem;line-height:1.6}
+.empty .big{font-size:2rem;margin-bottom:8px}
+.img-drop{border:2px dashed #1e3a55;border-radius:6px;padding:10px;text-align:center;cursor:pointer;position:relative;transition:border-color .2s}
+.img-drop:hover{border-color:#c9a84c}
+.img-drop input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.img-drop-lbl{font-size:.72rem;color:#aac;pointer-events:none}
+.img-prev{width:100%;height:90px;object-fit:cover;border-radius:6px;margin-top:5px;display:none}
+.img-clr{display:none;margin-top:4px}
+.img-clr button{background:transparent;border:1px solid #e57373;color:#e57373;border-radius:4px;padding:3px 10px;font-size:.68rem;cursor:pointer;font-family:inherit}
+#form-msg{margin-top:8px;font-size:.72rem;display:none;padding:5px 8px;border-radius:5px;background:rgba(0,0,0,.2)}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#0d1b2a}::-webkit-scrollbar-thumb{background:#2a4a6a;border-radius:3px}
+</style>
+</head>
+<body>
+
+<div id="loading"><div class="spinner"></div><p>Loading map…</p></div>
+
+<header>
+  <div>
+    <h1>📍 My Naxos Map — Custom Planner</h1>
+    <p>Add properties · pick colours · click map to place pins · export to share</p>
+  </div>
+  <div class="hdr-btns">
+    <button class="hbtn hbtn-add" onclick="APP.showAdd()">＋ Add Property</button>
+    <button class="hbtn hbtn-save" onclick="APP.exportHTML()">⬇ Export HTML</button>
+    <button class="hbtn hbtn-clear" onclick="APP.clearAll()">🗑 Clear All</button>
+  </div>
+</header>
+
+<div class="main">
+  <div style="position:relative;flex:1;display:flex;flex-direction:column">
+    <div id="map"></div>
+    <div class="map-hint" id="mapHint">📍 Click anywhere on the map to place your pin</div>
+    <button class="panel-toggle" onclick="APP.togglePanel()">☰ Properties</button>
+  </div>
+  <div class="panel" id="panel">
+    <div class="panel-tabs">
+      <div class="tab active" onclick="APP.tab('form')">✏️ Add / Edit</div>
+      <div class="tab"        onclick="APP.tab('list')">📋 My List</div>
+    </div>
+    <div class="tab-content active" id="tab-form">
+      <div class="fs"><label>Property Name *</label><input id="f-name" placeholder="e.g. Villa Sunrise"/></div>
+      <div class="frow">
+        <div class="fs"><label>Platform</label>
+          <select id="f-platform"><option>Booking.com</option><option>Airbnb</option><option>Direct</option><option>Other</option></select>
+        </div>
+        <div class="fs"><label>My Rank</label><input id="f-rank" type="number" min="1" placeholder="1=top"/></div>
+      </div>
+      <div class="fs"><label>Listing URL</label><input id="f-url" type="url" placeholder="https://…"/></div>
+      <div class="frow">
+        <div class="fs"><label>Price (4 nights)</label><input id="f-price" placeholder="€1,200"/></div>
+        <div class="fs"><label>Rating</label><input id="f-rating" placeholder="9.5/10"/></div>
+      </div>
+      <div class="frow">
+        <div class="fs"><label>Location / Village</label><input id="f-location" placeholder="Agia Anna"/></div>
+        <div class="fs"><label>Distance from Town</label><input id="f-distance" placeholder="7 km"/></div>
+      </div>
+      <div class="fs"><label>Bedrooms &amp; Bathrooms</label><input id="f-beds" placeholder="3 bed, 2 bath"/></div>
+      <div class="fs"><label>Notes / Why you like it</label><textarea id="f-notes" placeholder="Sea views, pool, near beach…"></textarea></div>
+      <div class="fs">
+        <label>📸 Property Photo (optional)</label>
+        <div class="img-drop" id="imgDrop">
+          <input type="file" accept="image/*" id="f-img" onchange="APP.onImage(this)"/>
+          <div class="img-drop-lbl" id="imgLbl">📷 Tap to upload a photo</div>
+        </div>
+        <img id="imgPrev" class="img-prev" alt="preview"/>
+        <div class="img-clr" id="imgClr"><button onclick="APP.clearImg()">✕ Remove photo</button></div>
+      </div>
+      <div class="fs">
+        <label>Pin Colour</label>
+        <div class="color-row" id="colorRow"></div>
+      </div>
+      <div class="fs">
+        <label>📍 Location — click the map, or enter manually</label>
+        <div class="frow">
+          <div class="fs"><input id="f-lat" type="number" step="0.00001" placeholder="Latitude"/></div>
+          <div class="fs"><input id="f-lng" type="number" step="0.00001" placeholder="Longitude"/></div>
+        </div>
+        <div style="font-size:.65rem;color:#c9a84c;margin-top:3px">💡 Click the map to auto-fill coordinates</div>
+      </div>
+      <button class="submit-btn" id="submitBtn" onclick="APP.submit()">📌 Add to Map</button>
+      <div id="form-msg"></div>
+    </div>
+    <div class="tab-content" id="tab-list">
+      <div class="prop-list" id="propList">
+        <div class="empty"><div class="big">🗺</div>No properties yet.<br/>Use <b>Add / Edit</b> to place your first pin!</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+/* ============================================================
+   EXPORTED STATIC MAP TEMPLATE
+   This string is inserted verbatim into the exported file.
+   It contains NO single quotes and NO backslashes that could
+   conflict — it uses only double quotes and template literals.
+   ==============================================================*/
+var EXPORT_TEMPLATE = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>My Naxos Map</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#0d1b2a;color:#fff;height:100vh;display:flex;flex-direction:column}
+header{background:linear-gradient(135deg,#0d1b2a,#1a3a5c);padding:12px 20px;border-bottom:2px solid #c9a84c;flex-shrink:0}
+header h1{font-size:1rem;color:#c9a84c}
+header p{font-size:.7rem;color:#aac;margin-top:2px}
+#wrap{position:relative;flex:1;display:flex;flex-direction:column}
+#map{flex:1}
+.leaflet-popup-content-wrapper{border-radius:10px;padding:0;overflow:hidden;min-width:250px;max-width:300px}
+.leaflet-popup-content{margin:0!important}
+.ph{padding:9px 12px;font-size:.82rem;font-weight:700;color:#fff;line-height:1.3}
+.pb{padding:9px 12px 11px;background:#fff}
+.pr{display:flex;gap:5px;margin-bottom:4px;font-size:.74rem;color:#333;align-items:flex-start}
+.pi{width:100%;height:140px;object-fit:cover;display:block}
+.pl{display:block;margin-top:8px;text-align:center;padding:7px;border-radius:6px;font-size:.76rem;font-weight:700;color:#fff;text-decoration:none}
+#sb{position:absolute;top:0;right:0;width:270px;height:100%;background:#0d1b2a;border-left:2px solid #c9a84c;z-index:998;overflow-y:auto;padding:14px;transform:translateX(100%);transition:transform .3s}
+#sb.open{transform:translateX(0)}
+#sb h2{font-size:.9rem;color:#c9a84c;margin-bottom:10px;border-bottom:1px solid #334;padding-bottom:7px}
+.sc{background:#152638;border-radius:8px;margin-bottom:7px;padding:8px 10px;cursor:pointer;border:1px solid #1e3a55;border-left:4px solid #c9a84c}
+.sc:hover{border-top-color:#c9a84c;border-right-color:#c9a84c;border-bottom-color:#c9a84c}
+.sc-r{font-size:.65rem;font-weight:800;color:#c9a84c}
+.sc-n{font-size:.75rem;font-weight:700;color:#dde;margin:2px 0}
+.sc-m{font-size:.67rem;color:#88a}
+#tog{position:absolute;top:10px;right:10px;z-index:999;background:#1a3a5c;color:#c9a84c;border:2px solid #c9a84c;border-radius:8px;padding:6px 12px;font-size:.75rem;font-weight:700;cursor:pointer}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#0d1b2a}::-webkit-scrollbar-thumb{background:#2a4a6a;border-radius:3px}
+</style>
+</head>
+<body>
+<header><h1>📍 My Naxos Map</h1><p>Tap a pin for details and to open the listing</p></header>
+<div id="wrap">
+  <div id="map"></div>
+  <button id="tog" onclick="document.getElementById('sb').classList.toggle('open')">☰ List</button>
+  <div id="sb"><h2>📋 All Properties</h2><div id="slist"></div></div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"><\/script>
+<script>
+window.addEventListener("load", function() {
+  var PROPS = __DATA__;
+
+  var map = L.map("map", {center:[37.05,25.48],zoom:11});
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+    attribution:"© OpenStreetMap contributors", maxZoom:18
+  }).addTo(map);
+
+  function mkIcon(color, rank) {
+    var w=38, h=46, cx=19, cy=19;
+    var svg = [
+      "<svg xmlns=\\"http://www.w3.org/2000/svg\\" width=\\""+w+"\\" height=\\""+h+"\\">",
+      "<circle cx=\\""+cx+"\\" cy=\\""+cy+"\\" r=\\"17\\" fill=\\""+color+"\\" stroke=\\"white\\" stroke-width=\\"2.5\\"/>",
+      "<text x=\\""+cx+"\\" y=\\""+(cy+5)+"\\" text-anchor=\\"middle\\" font-family=\\"Arial\\" font-size=\\"12\\" font-weight=\\"bold\\" fill=\\"white\\">"+rank+"</text>",
+      "<polygon points=\\""+(cx-5)+",37 "+(cx+5)+",37 "+cx+","+h+"\\" fill=\\""+color+"\\"/>",
+      "</svg>"
+    ].join("");
+    return L.divIcon({html:svg,iconSize:[w,h],iconAnchor:[cx,h],popupAnchor:[0,-(h+2)],className:""});
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  var markers = [];
+  var sorted = PROPS.slice().sort(function(a,b){return a.rank-b.rank;});
+
+  sorted.forEach(function(p) {
+    var imgH = p.image ? "<img class=\\"pi\\" src=\\""+p.image+"\\" alt=\\"/>" : "";
+    var lkH  = p.url   ? "<a class=\\"pl\\" href=\\""+esc(p.url)+"\\" target=\\"_blank\\" style=\\"background:"+p.color+"\\">Open Listing →</a>" : "";
+    var rows = "";
+    if (p.location) rows += "<div class=\\"pr\\"><span>📍</span><div><b>"+esc(p.location)+"</b>"+(p.distance?" · "+esc(p.distance):"")+  "</div></div>";
+    if (p.beds)     rows += "<div class=\\"pr\\"><span>🛏</span><div>"+esc(p.beds)+"</div></div>";
+    if (p.rating)   rows += "<div class=\\"pr\\"><span>⭐</span><div><b>"+esc(p.rating)+"</b></div></div>";
+    if (p.price)    rows += "<div class=\\"pr\\"><span>💶</span><div><b>"+esc(p.price)+"</b></div></div>";
+    if (p.notes)    rows += "<div class=\\"pr\\"><span>💡</span><div>"+esc(p.notes)+"</div></div>";
+    var pop = "<div class=\\"ph\\" style=\\"background:"+p.color+"\\">#"+p.rank+" — "+esc(p.name)+"</div>"
+            + imgH
+            + "<div class=\\"pb\\">"+rows+lkH+"</div>";
+
+    var m = L.marker([p.lat,p.lng],{icon:mkIcon(p.color,p.rank)}).addTo(map);
+    m.bindPopup(pop,{maxWidth:300,minWidth:250});
+    markers.push({m:m,p:p});
+  });
+
+  if (markers.length > 1) {
+    try { map.fitBounds(L.featureGroup(markers.map(function(x){return x.m;})).getBounds().pad(0.14)); } catch(e){}
+  } else if (markers.length === 1) {
+    map.setView([sorted[0].lat, sorted[0].lng], 13);
+  }
+
+  var sl = document.getElementById("slist");
+  markers.forEach(function(obj) {
+    var d = document.createElement("div");
+    d.className = "sc";
+    d.style.borderLeftColor = obj.p.color;
+    d.innerHTML = "<div class=\\"sc-r\\">#"+obj.p.rank+" · "+esc(obj.p.platform)+"</div>"
+      + "<div class=\\"sc-n\\">"+esc(obj.p.name)+"</div>"
+      + "<div class=\\"sc-m\\">"+(obj.p.location?esc(obj.p.location):"")+( obj.p.price?" · "+esc(obj.p.price):"")+( obj.p.rating?" · ⭐"+esc(obj.p.rating):""  )+"</div>";
+    d.onclick = function() {
+      map.setView([obj.p.lat,obj.p.lng],14);
+      obj.m.openPopup();
+      document.getElementById("sb").classList.remove("open");
+    };
+    sl.appendChild(d);
+  });
+});
+<\/script>
+</body>
+</html>`;
+
+/* ============================================================
+   EDITOR APPLICATION
+   ============================================================*/
+window.addEventListener('load', function() {
+
+var COLOURS = ['#c9a84c','#FF5A5F','#003580','#27ae60','#9b59b6','#e67e22','#e74c3c','#1abc9c','#2980b9','#e91e63','#34495e','#f39c12'];
+var selColor = COLOURS[0];
+var pendingImg = null;
+var props = [];
+var lMarkers = {};
+var editId = null;
+var idCtr = 1;
+
+// Build colour swatches
+var cr = document.getElementById('colorRow');
+COLOURS.forEach(function(c) {
+  var sw = document.createElement('div');
+  sw.className = 'swatch' + (c === selColor ? ' on' : '');
+  sw.style.background = c;
+  sw.title = c;
+  sw.onclick = function() {
+    document.querySelectorAll('.swatch').forEach(function(s){s.classList.remove('on');});
+    sw.classList.add('on');
+    selColor = c;
+  };
+  cr.appendChild(sw);
+});
+
+// Map
+var map = L.map('map', {center:[37.05,25.48],zoom:11});
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  attribution:'© <a href="https://openstreetmap.org">OpenStreetMap</a>',maxZoom:18
+}).addTo(map);
+document.getElementById('loading').style.display = 'none';
+
+map.on('click', function(e) {
+  document.getElementById('f-lat').value = e.latlng.lat.toFixed(5);
+  document.getElementById('f-lng').value = e.latlng.lng.toFixed(5);
+  document.getElementById('mapHint').classList.remove('on');
+  APP.tab('form');
+  ['f-lat','f-lng'].forEach(function(id){
+    var el=document.getElementById(id);
+    el.style.borderColor='#c9a84c';
+    setTimeout(function(){el.style.borderColor='';},1200);
+  });
+});
+
+// Icon builder
+function mkIcon(color, rank) {
+  var w=38,h=46,cx=19,cy=19;
+  var svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'">'
+    +'<circle cx="'+cx+'" cy="'+cy+'" r="17" fill="'+color+'" stroke="white" stroke-width="2.5"/>'
+    +'<text x="'+cx+'" y="'+(cy+5)+'" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="white">'+rank+'</text>'
+    +'<polygon points="'+(cx-5)+',37 '+(cx+5)+',37 '+cx+','+h+'" fill="'+color+'"/>'
+    +'</svg>';
+  return L.divIcon({html:svg,iconSize:[w,h],iconAnchor:[cx,h],popupAnchor:[0,-(h+2)],className:''});
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function buildPopup(p) {
+  var imgH = p.image ? '<img class="pop-img" src="'+p.image+'" alt=""/>' : '';
+  var lkH  = p.url   ? '<a class="pop-link" href="'+esc(p.url)+'" target="_blank" style="background:'+p.color+'">Open Listing →</a>' : '';
+  var rows = '';
+  if (p.location) rows+='<div class="pop-row"><span>📍</span><div><b>'+esc(p.location)+'</b>'+(p.distance?' · '+esc(p.distance):'' )+'</div></div>';
+  if (p.beds)     rows+='<div class="pop-row"><span>🛏</span><div>'+esc(p.beds)+'</div></div>';
+  if (p.rating)   rows+='<div class="pop-row"><span>⭐</span><div><b>'+esc(p.rating)+'</b></div></div>';
+  if (p.price)    rows+='<div class="pop-row"><span>💶</span><div><b>'+esc(p.price)+'</b></div></div>';
+  if (p.notes)    rows+='<div class="pop-row"><span>💡</span><div>'+esc(p.notes)+'</div></div>';
+  rows+='<div class="pop-row" style="gap:5px;margin-top:5px">'
+    +'<button onclick="APP.edit('+p.id+')" style="flex:1;padding:5px;background:#f0f0f0;border:none;border-radius:5px;cursor:pointer;font-size:.72rem;font-weight:700">✏️ Edit</button>'
+    +'<button onclick="APP.del('+p.id+')"  style="flex:1;padding:5px;background:#ffe0e0;border:none;border-radius:5px;cursor:pointer;font-size:.72rem;font-weight:700;margin-left:5px">🗑 Delete</button>'
+    +'</div>';
+  return '<div class="pop-head" style="background:'+p.color+'">#'+p.rank+' — '+esc(p.name)+'</div>'
+    +imgH+'<div class="pop-body">'+rows+lkH+'</div>';
+}
+
+function renderMarker(p) {
+  if (lMarkers[p.id]) map.removeLayer(lMarkers[p.id]);
+  var m = L.marker([p.lat,p.lng],{icon:mkIcon(p.color,p.rank)}).addTo(map);
+  m.bindPopup(buildPopup(p),{maxWidth:300,minWidth:250});
+  lMarkers[p.id]=m;
+}
+
+function renderList() {
+  var el=document.getElementById('propList');
+  if (!props.length){
+    el.innerHTML='<div class="empty"><div class="big">🗺</div>No properties yet.<br/>Use <b>Add / Edit</b> to place your first pin!</div>';
+    return;
+  }
+  el.innerHTML='';
+  props.slice().sort(function(a,b){return a.rank-b.rank;}).forEach(function(p){
+    var d=document.createElement('div');
+    d.className='prop-card';
+    d.style.borderLeftColor=p.color;
+    d.innerHTML='<div class="pc-rank">#'+p.rank+' · '+esc(p.platform)+'</div>'
+      +'<div class="pc-name">'+esc(p.name)+'</div>'
+      +'<div class="pc-meta">'+(p.location?esc(p.location):''+(p.price?' · '+esc(p.price):'')+(p.rating?' · ⭐'+esc(p.rating):'')+(p.image?' · 📸':''))+'</div>'
+      +'<div class="pc-actions">'
+      +'<button class="pb pb-e" onclick="APP.edit('+p.id+')">✏️ Edit</button>'
+      +'<button class="pb pb-d" onclick="APP.del('+p.id+')">🗑 Del</button>'
+      +'<button class="pb pb-n" onclick="APP.rank('+p.id+',-1)">▲</button>'
+      +'<button class="pb pb-n" onclick="APP.rank('+p.id+',1)">▼</button>'
+      +'<button class="pb pb-n" onclick="APP.fly('+p.id+')">🎯 Go</button>'
+      +'</div>';
+    el.appendChild(d);
+  });
+}
+
+function msg(txt, col) {
+  var el=document.getElementById('form-msg');
+  el.textContent=txt; el.style.color=col||'#e74c3c'; el.style.display='block';
+  setTimeout(function(){el.style.display='none';},3000);
+}
+
+function clearForm() {
+  ['f-name','f-url','f-price','f-rating','f-location','f-distance','f-beds','f-notes','f-lat','f-lng'].forEach(function(id){
+    document.getElementById(id).value='';
+  });
+  document.getElementById('f-rank').value=props.length+1;
+  document.getElementById('f-platform').value='Booking.com';
+  document.querySelectorAll('.swatch').forEach(function(s){s.classList.remove('on');});
+  document.querySelectorAll('.swatch')[0].classList.add('on');
+  selColor=COLOURS[0];
+  APP.clearImg();
+  document.getElementById('form-msg').style.display='none';
+  document.getElementById('submitBtn').textContent='📌 Add to Map';
+}
+
+// Public API
+window.APP = {
+  tab: function(name) {
+    document.querySelectorAll('.tab').forEach(function(t,i){
+      t.classList.toggle('active',(i===0&&name==='form')||(i===1&&name==='list'));
+    });
+    ['form','list'].forEach(function(n){
+      document.getElementById('tab-'+n).classList.toggle('active',n===name);
+    });
+    if (name==='list') renderList();
+  },
+  togglePanel: function() { document.getElementById('panel').classList.toggle('collapsed'); },
+  showAdd: function() {
+    clearForm(); editId=null; APP.tab('form');
+    document.getElementById('mapHint').classList.add('on');
+    setTimeout(function(){document.getElementById('mapHint').classList.remove('on');},4000);
+  },
+  onImage: function(inp) {
+    var file=inp.files[0]; if(!file) return;
+    var reader=new FileReader();
+    reader.onload=function(e){
+      var img=new Image();
+      img.onload=function(){
+        var canvas=document.createElement('canvas');
+        var MAX=800, scale=Math.min(1,MAX/img.width);
+        canvas.width=Math.round(img.width*scale);
+        canvas.height=Math.round(img.height*scale);
+        canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+        pendingImg=canvas.toDataURL('image/jpeg',0.82);
+        document.getElementById('imgPrev').src=pendingImg;
+        document.getElementById('imgPrev').style.display='block';
+        document.getElementById('imgLbl').textContent='✅ '+file.name;
+        document.getElementById('imgClr').style.display='block';
+      };
+      img.src=e.target.result;
+    };
+    reader.readAsDataURL(file);
+  },
+  clearImg: function() {
+    pendingImg=null;
+    document.getElementById('f-img').value='';
+    document.getElementById('imgPrev').style.display='none';
+    document.getElementById('imgPrev').src='';
+    document.getElementById('imgLbl').textContent='📷 Tap to upload a photo';
+    document.getElementById('imgClr').style.display='none';
+  },
+  submit: function() {
+    var name=document.getElementById('f-name').value.trim();
+    var lat=parseFloat(document.getElementById('f-lat').value);
+    var lng=parseFloat(document.getElementById('f-lng').value);
+    if (!name) { msg('⚠️ Please enter a property name.'); return; }
+    if (isNaN(lat)||isNaN(lng)) { msg('⚠️ Click on the map to set pin location.'); return; }
+
+    var existingImg = null;
+    if (editId !== null) {
+      var old = props.find(function(x){return x.id===editId;});
+      if (old) existingImg = old.image;
+    }
+    var p={
+      id:    editId!==null ? editId : idCtr++,
+      name:  name,
+      platform: document.getElementById('f-platform').value,
+      rank:  parseInt(document.getElementById('f-rank').value)||(props.length+1),
+      url:   document.getElementById('f-url').value.trim(),
+      price: document.getElementById('f-price').value.trim(),
+      rating:document.getElementById('f-rating').value.trim(),
+      location:document.getElementById('f-location').value.trim(),
+      distance:document.getElementById('f-distance').value.trim(),
+      beds:  document.getElementById('f-beds').value.trim(),
+      notes: document.getElementById('f-notes').value.trim(),
+      color: selColor, lat:lat, lng:lng,
+      image: pendingImg || existingImg || null,
+    };
+    if (editId!==null) {
+      var idx=props.findIndex(function(x){return x.id===editId;});
+      if (idx>-1) props[idx]=p; else props.push(p);
+    } else { props.push(p); }
+    renderMarker(p); renderList(); clearForm(); editId=null;
+    msg('✅ Property saved!','#27ae60');
+    if (props.length===1){map.setView([p.lat,p.lng],13);}
+    else{try{map.fitBounds(L.featureGroup(Object.values(lMarkers)).getBounds().pad(0.14));}catch(e){}}
+  },
+  edit: function(id) {
+    var p=props.find(function(x){return x.id===id;}); if(!p) return;
+    editId=id; pendingImg=null;
+    document.getElementById('f-name').value    =p.name;
+    document.getElementById('f-platform').value=p.platform;
+    document.getElementById('f-rank').value    =p.rank;
+    document.getElementById('f-url').value     =p.url||'';
+    document.getElementById('f-price').value   =p.price||'';
+    document.getElementById('f-rating').value  =p.rating||'';
+    document.getElementById('f-location').value=p.location||'';
+    document.getElementById('f-distance').value=p.distance||'';
+    document.getElementById('f-beds').value    =p.beds||'';
+    document.getElementById('f-notes').value   =p.notes||'';
+    document.getElementById('f-lat').value     =p.lat;
+    document.getElementById('f-lng').value     =p.lng;
+    document.querySelectorAll('.swatch').forEach(function(s){s.classList.toggle('on',s.title===p.color);});
+    selColor=p.color;
+    if (p.image){
+      document.getElementById('imgPrev').src=p.image;
+      document.getElementById('imgPrev').style.display='block';
+      document.getElementById('imgLbl').textContent='✅ Current photo (upload new to replace)';
+      document.getElementById('imgClr').style.display='block';
+    } else { APP.clearImg(); }
+    document.getElementById('submitBtn').textContent='💾 Save Changes';
+    map.closePopup(); APP.tab('form');
+  },
+  del: function(id) {
+    if (!confirm('Remove this property?')) return;
+    props=props.filter(function(x){return x.id!==id;});
+    if (lMarkers[id]){map.removeLayer(lMarkers[id]);delete lMarkers[id];}
+    map.closePopup(); renderList();
+  },
+  rank: function(id,dir) {
+    var p=props.find(function(x){return x.id===id;}); if(!p) return;
+    p.rank=Math.max(1,p.rank+dir); renderMarker(p); renderList();
+  },
+  fly: function(id) {
+    var p=props.find(function(x){return x.id===id;}); if(!p) return;
+    map.setView([p.lat,p.lng],14);
+    if(lMarkers[id]) lMarkers[id].openPopup();
+  },
+  clearAll: function() {
+    if (!props.length) return;
+    if (!confirm('Remove ALL properties?')) return;
+    props.forEach(function(p){if(lMarkers[p.id])map.removeLayer(lMarkers[p.id]);});
+    props=[]; lMarkers={}; renderList(); clearForm();
+  },
+
+  // ── THE EXPORT ──────────────────────────────────────────────────────────────
+  // Strategy: take the static template string, inject the JSON data,
+  // then download. No string-building of HTML — the template is already
+  // a complete valid HTML file stored as a JS string above.
+  exportHTML: function() {
+    if (!props.length) { alert('Add some properties first!'); return; }
+
+    // Serialise data — JSON.stringify handles all escaping correctly.
+    // We then inject it into the template by replacing the __DATA__ placeholder.
+    var json = JSON.stringify(props);
+
+    // The template uses __DATA__ as a placeholder for the JSON array.
+    var output = EXPORT_TEMPLATE.replace('__DATA__', json);
+
+    try {
+      var blob = new Blob([output], {type:'text/html;charset=utf-8'});
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'my_naxos_map.html';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(a.href);},1000);
+      msg('✅ Exported! Check your Downloads.','#27ae60');
+    } catch(e) {
+      alert('Export failed: ' + e.message);
+    }
+  }
+};
+
+document.getElementById('f-rank').value=1;
+
+}); // end load
+</script>
+</body>
+</html>
