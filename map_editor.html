@@ -19,6 +19,8 @@ header p{font-size:0.68rem;color:#aac;margin-top:1px}
 .hbtn-save:hover{background:#2ecc71}
 .hbtn-clear{background:transparent;color:#e57373;border-color:#e57373}
 .hbtn-clear:hover{background:#e57373;color:#fff}
+.hbtn-import{background:transparent;color:#c9a84c;border-color:#c9a84c}
+.hbtn-import:hover{background:#c9a84c;color:#0d1b2a}
 .main{display:flex;flex:1;overflow:hidden}
 #map{flex:1}
 .panel{width:340px;background:#0f2035;border-left:2px solid #1e3a55;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;transition:width .3s}
@@ -53,6 +55,10 @@ header p{font-size:0.68rem;color:#aac;margin-top:1px}
 .pb-d:hover{background:#e57373;color:#fff}
 .pb-n{color:#aac;border-color:#334;background:transparent}
 .pb-n:hover{background:#334}
+.prop-card.dragging{opacity:0.35;transform:scale(0.97)}
+.prop-card.drag-over{border-top:2px solid #c9a84c !important;margin-top:-1px}
+.drag-handle{cursor:grab;color:#556;font-size:1rem;padding:0 4px;user-select:none;touch-action:none}
+.drag-handle:active{cursor:grabbing}
 .map-hint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);background:rgba(13,27,42,0.92);color:#c9a84c;padding:6px 14px;border-radius:20px;font-size:0.72rem;font-weight:600;z-index:900;pointer-events:none;border:1px solid #c9a84c;white-space:nowrap;display:none}
 .map-hint.on{display:block}
 .leaflet-popup-content-wrapper{border-radius:10px;padding:0;overflow:hidden;min-width:250px;max-width:300px}
@@ -91,6 +97,8 @@ header p{font-size:0.68rem;color:#aac;margin-top:1px}
   </div>
   <div class="hdr-btns">
     <button class="hbtn hbtn-add" onclick="APP.showAdd()">＋ Add Property</button>
+    <button class="hbtn hbtn-import" onclick="document.getElementById('importInput').click()">📂 Import HTML</button>
+    <input type="file" id="importInput" accept=".html,text/html" style="display:none" onchange="APP.importHTML(this)"/>
     <button class="hbtn hbtn-save" onclick="APP.exportHTML()">⬇ Export HTML</button>
     <button class="hbtn hbtn-clear" onclick="APP.clearAll()">🗑 Clear All</button>
   </div>
@@ -191,11 +199,14 @@ header p{font-size:.7rem;color:#aac;margin-top:2px}
 #sb{position:absolute;top:0;right:0;width:270px;height:100%;background:#0d1b2a;border-left:2px solid #c9a84c;z-index:998;overflow-y:auto;padding:14px;transform:translateX(100%);transition:transform .3s}
 #sb.open{transform:translateX(0)}
 #sb h2{font-size:.9rem;color:#c9a84c;margin-bottom:10px;border-bottom:1px solid #334;padding-bottom:7px}
-.sc{background:#152638;border-radius:8px;margin-bottom:7px;padding:8px 10px;cursor:pointer;border:1px solid #1e3a55;border-left:4px solid #c9a84c}
+.sc{background:#152638;border-radius:8px;margin-bottom:7px;padding:8px 10px;cursor:pointer;border:1px solid #1e3a55;border-left:4px solid #c9a84c;user-select:none}
 .sc:hover{border-top-color:#c9a84c;border-right-color:#c9a84c;border-bottom-color:#c9a84c}
+.sc.dragging{opacity:0.3;transform:scale(0.97)}
+.sc.drag-over{border-top:2px solid #c9a84c}
 .sc-r{font-size:.65rem;font-weight:800;color:#c9a84c}
 .sc-n{font-size:.75rem;font-weight:700;color:#dde;margin:2px 0}
 .sc-m{font-size:.67rem;color:#88a}
+.dh{float:right;color:#556;font-size:1rem;cursor:grab;touch-action:none;padding-left:6px}
 #tog{position:absolute;top:10px;right:10px;z-index:999;background:#1a3a5c;color:#c9a84c;border:2px solid #c9a84c;border-radius:8px;padding:6px 12px;font-size:.75rem;font-weight:700;cursor:pointer}
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#0d1b2a}::-webkit-scrollbar-thumb{background:#2a4a6a;border-radius:3px}
 </style>
@@ -261,20 +272,96 @@ window.addEventListener("load", function() {
   }
 
   var sl = document.getElementById("slist");
-  markers.forEach(function(obj) {
-    var d = document.createElement("div");
-    d.className = "sc";
-    d.style.borderLeftColor = obj.p.color;
-    d.innerHTML = "<div class=\\"sc-r\\">#"+obj.p.rank+" · "+esc(obj.p.platform)+"</div>"
-      + "<div class=\\"sc-n\\">"+esc(obj.p.name)+"</div>"
-      + "<div class=\\"sc-m\\">"+(obj.p.location?esc(obj.p.location):"")+( obj.p.price?" · "+esc(obj.p.price):"")+( obj.p.rating?" · ⭐"+esc(obj.p.rating):""  )+"</div>";
-    d.onclick = function() {
-      map.setView([obj.p.lat,obj.p.lng],14);
-      obj.m.openPopup();
-      document.getElementById("sb").classList.remove("open");
-    };
-    sl.appendChild(d);
-  });
+
+  function buildSidebar(markerList) {
+    sl.innerHTML = "";
+    markerList.forEach(function(obj, idx) {
+      var d = document.createElement("div");
+      d.className = "sc";
+      d.style.borderLeftColor = obj.p.color;
+      d.setAttribute("data-idx", idx);
+      d.draggable = true;
+      d.innerHTML = "<span class=\"dh\" title=\"Drag to reorder\">⠿</span>"
+        + "<div class=\"sc-r\">#"+obj.p.rank+" · "+esc(obj.p.platform)+"</div>"
+        + "<div class=\"sc-n\">"+esc(obj.p.name)+"</div>"
+        + "<div class=\"sc-m\">"+(obj.p.location?esc(obj.p.location):"")+( obj.p.price?" · "+esc(obj.p.price):"")+( obj.p.rating?" · ⭐"+esc(obj.p.rating):"")+"</div>";
+
+      d.addEventListener("click", function(e) {
+        if (e.target.classList.contains("dh")) return;
+        map.setView([obj.p.lat,obj.p.lng],14);
+        obj.m.openPopup();
+        document.getElementById("sb").classList.remove("open");
+      });
+
+      d.addEventListener("dragstart", function(e) {
+        e.dataTransfer.setData("text/plain", String(idx));
+        e.dataTransfer.effectAllowed = "move";
+        setTimeout(function(){ d.classList.add("dragging"); }, 0);
+      });
+      d.addEventListener("dragend", function() {
+        d.classList.remove("dragging");
+        sl.querySelectorAll(".sc").forEach(function(c){ c.classList.remove("drag-over"); });
+      });
+      d.addEventListener("dragover", function(e) {
+        e.preventDefault();
+        sl.querySelectorAll(".sc").forEach(function(c){ c.classList.remove("drag-over"); });
+        d.classList.add("drag-over");
+      });
+      d.addEventListener("drop", function(e) {
+        e.preventDefault();
+        var fromIdx = parseInt(e.dataTransfer.getData("text/plain"));
+        var toIdx   = parseInt(d.getAttribute("data-idx"));
+        if (fromIdx === toIdx) return;
+        var moved = markerList.splice(fromIdx, 1)[0];
+        markerList.splice(toIdx, 0, moved);
+        markerList.forEach(function(o,i){ o.p.rank = i+1; });
+        buildSidebar(markerList);
+      });
+
+      sl.appendChild(d);
+    });
+
+    // Touch / pointer drag for mobile
+    var tDrag = null, tPh = null;
+    sl.addEventListener("pointerdown", function(e) {
+      var card = e.target.closest(".sc"), handle = e.target.closest(".dh");
+      if (!card || !handle) return;
+      e.preventDefault();
+      tDrag = card;
+      card.setPointerCapture(e.pointerId);
+      tPh = document.createElement("div");
+      tPh.style.cssText = "height:"+card.offsetHeight+"px;border:2px dashed #c9a84c;border-radius:8px;margin-bottom:7px;opacity:0.5";
+      card.classList.add("dragging");
+    }, {passive:false});
+    sl.addEventListener("pointermove", function(e) {
+      if (!tDrag) return; e.preventDefault();
+      var cards = Array.from(sl.querySelectorAll(".sc:not(.dragging)"));
+      var after = null;
+      for (var i=0;i<cards.length;i++) { var b=cards[i].getBoundingClientRect(); if (e.clientY < b.top+b.height/2) { after=cards[i]; break; } }
+      if (tPh.parentNode) tPh.parentNode.removeChild(tPh);
+      if (after) sl.insertBefore(tPh, after); else sl.appendChild(tPh);
+    }, {passive:false});
+    sl.addEventListener("pointerup", function(e) {
+      if (!tDrag) return;
+      var fromIdx = parseInt(tDrag.getAttribute("data-idx"));
+      var cards = Array.from(sl.querySelectorAll(".sc:not(.dragging)"));
+      var afterCard = null;
+      for (var i=0;i<cards.length;i++) { var b=cards[i].getBoundingClientRect(); if (e.clientY < b.top+b.height/2) { afterCard=cards[i]; break; } }
+      var toIdx = afterCard ? parseInt(afterCard.getAttribute("data-idx")) : markerList.length - 1;
+      if (fromIdx !== toIdx) {
+        var moved = markerList.splice(fromIdx, 1)[0];
+        markerList.splice(toIdx, 0, moved);
+        markerList.forEach(function(o,i){ o.p.rank = i+1; });
+      }
+      tDrag.classList.remove("dragging");
+      if (tPh.parentNode) tPh.parentNode.removeChild(tPh);
+      tDrag = null; tPh = null;
+      buildSidebar(markerList);
+    });
+  }
+
+  buildSidebar(markers);
+});
 });
 <\/script>
 </body>
@@ -373,21 +460,122 @@ function renderList() {
     return;
   }
   el.innerHTML='';
-  props.slice().sort(function(a,b){return a.rank-b.rank;}).forEach(function(p){
+  var sorted=props.slice().sort(function(a,b){return a.rank-b.rank;});
+  sorted.forEach(function(p){
     var d=document.createElement('div');
     d.className='prop-card';
     d.style.borderLeftColor=p.color;
-    d.innerHTML='<div class="pc-rank">#'+p.rank+' · '+esc(p.platform)+'</div>'
+    d.setAttribute('data-id', p.id);
+    d.draggable=true;
+    d.innerHTML='<div style="display:flex;align-items:flex-start;gap:6px">'
+      +'<span class="drag-handle" title="Drag to reorder">⠿</span>'
+      +'<div style="flex:1;min-width:0">'
+      +'<div class="pc-rank">#'+p.rank+' · '+esc(p.platform)+'</div>'
       +'<div class="pc-name">'+esc(p.name)+'</div>'
-      +'<div class="pc-meta">'+(p.location?esc(p.location):''+(p.price?' · '+esc(p.price):'')+(p.rating?' · ⭐'+esc(p.rating):'')+(p.image?' · 📸':''))+'</div>'
+      +'<div class="pc-meta">'+(p.location?esc(p.location):'')+(p.price?' · '+esc(p.price):'')+(p.rating?' · ⭐'+esc(p.rating):'')+(p.image?' · 📸':'')+'</div>'
       +'<div class="pc-actions">'
       +'<button class="pb pb-e" onclick="APP.edit('+p.id+')">✏️ Edit</button>'
       +'<button class="pb pb-d" onclick="APP.del('+p.id+')">🗑 Del</button>'
-      +'<button class="pb pb-n" onclick="APP.rank('+p.id+',-1)">▲</button>'
-      +'<button class="pb pb-n" onclick="APP.rank('+p.id+',1)">▼</button>'
       +'<button class="pb pb-n" onclick="APP.fly('+p.id+')">🎯 Go</button>'
-      +'</div>';
+      +'</div>'
+      +'</div></div>';
+    // Drag events
+    d.addEventListener('dragstart', function(e){
+      e.dataTransfer.effectAllowed='move';
+      e.dataTransfer.setData('text/plain', p.id);
+      setTimeout(function(){ d.classList.add('dragging'); }, 0);
+    });
+    d.addEventListener('dragend', function(){
+      d.classList.remove('dragging');
+      el.querySelectorAll('.prop-card').forEach(function(c){ c.classList.remove('drag-over'); });
+    });
+    d.addEventListener('dragover', function(e){
+      e.preventDefault();
+      e.dataTransfer.dropEffect='move';
+      el.querySelectorAll('.prop-card').forEach(function(c){ c.classList.remove('drag-over'); });
+      d.classList.add('drag-over');
+    });
+    d.addEventListener('drop', function(e){
+      e.preventDefault();
+      var fromId = parseInt(e.dataTransfer.getData('text/plain'));
+      var toId   = p.id;
+      if (fromId === toId) return;
+      // Reorder: swap ranks so dragged item takes the drop target's rank position
+      var fromP = props.find(function(x){return x.id===fromId;});
+      var toP   = props.find(function(x){return x.id===toId;});
+      if (!fromP || !toP) return;
+      // Re-assign all ranks by current sorted order, then insert fromP at toP position
+      var order = props.slice().sort(function(a,b){return a.rank-b.rank;});
+      order = order.filter(function(x){return x.id!==fromId;});
+      var toIdx = order.findIndex(function(x){return x.id===toId;});
+      order.splice(toIdx, 0, fromP);
+      order.forEach(function(x,i){ x.rank=i+1; });
+      // Re-render markers to update pin numbers
+      props.forEach(function(x){ renderMarker(x); });
+      renderList();
+    });
     el.appendChild(d);
+  });
+
+  // Touch drag-and-drop (mobile) via pointer events
+  initTouchDrag(el);
+}
+
+function initTouchDrag(container) {
+  var dragged=null, placeholder=null, startY=0, lastOver=null;
+  container.addEventListener('pointerdown', function(e){
+    var card = e.target.closest('.prop-card');
+    var handle = e.target.closest('.drag-handle');
+    if (!card || !handle) return;
+    e.preventDefault();
+    dragged = card;
+    dragged.setPointerCapture(e.pointerId);
+    startY = e.clientY;
+    placeholder = document.createElement('div');
+    placeholder.style.cssText='height:'+card.offsetHeight+'px;border:2px dashed #c9a84c;border-radius:8px;margin-bottom:7px;opacity:0.5;background:#0d1b2a';
+    card.classList.add('dragging');
+  }, {passive:false});
+
+  container.addEventListener('pointermove', function(e){
+    if (!dragged) return;
+    e.preventDefault();
+    var els = Array.from(container.querySelectorAll('.prop-card:not(.dragging)'));
+    var after = null;
+    for (var i=0;i<els.length;i++){
+      var box=els[i].getBoundingClientRect();
+      if (e.clientY < box.top + box.height/2){ after=els[i]; break; }
+    }
+    if (placeholder.parentNode) placeholder.parentNode.removeChild(placeholder);
+    if (after) container.insertBefore(placeholder, after);
+    else container.appendChild(placeholder);
+  }, {passive:false});
+
+  container.addEventListener('pointerup', function(e){
+    if (!dragged) return;
+    var cards = Array.from(container.querySelectorAll('.prop-card:not(.dragging)'));
+    var afterCard = null;
+    for (var i=0;i<cards.length;i++){
+      var box=cards[i].getBoundingClientRect();
+      if (e.clientY < box.top + box.height/2){ afterCard=cards[i]; break; }
+    }
+    // Determine new order
+    var orderedIds = [];
+    cards.forEach(function(c,i){
+      if (afterCard && c===afterCard) orderedIds.push(parseInt(dragged.getAttribute('data-id')));
+      orderedIds.push(parseInt(c.getAttribute('data-id')));
+    });
+    if (!afterCard) orderedIds.push(parseInt(dragged.getAttribute('data-id')));
+    // Remove dupes
+    orderedIds = orderedIds.filter(function(v,i,a){return a.indexOf(v)===i;});
+    orderedIds.forEach(function(id,i){
+      var p=props.find(function(x){return x.id===id;});
+      if (p) p.rank=i+1;
+    });
+    dragged.classList.remove('dragging');
+    if (placeholder.parentNode) placeholder.parentNode.removeChild(placeholder);
+    dragged=null; placeholder=null;
+    props.forEach(function(x){ renderMarker(x); });
+    renderList();
   });
 }
 
@@ -539,6 +727,67 @@ window.APP = {
     if (!confirm('Remove ALL properties?')) return;
     props.forEach(function(p){if(lMarkers[p.id])map.removeLayer(lMarkers[p.id]);});
     props=[]; lMarkers={}; renderList(); clearForm();
+  },
+
+
+  // ── IMPORT ─────────────────────────────────────────────────────────────────
+  // Reads a previously exported HTML file, finds the embedded JSON array,
+  // and reloads all properties back into the editor.
+  importHTML: function(inp) {
+    var file = inp.files[0];
+    if (!file) return;
+    inp.value = '';
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var html = e.target.result;
+
+      // The exported file contains exactly:  var PROPS = [...];
+      // We find the start of the array and parse until the matching closing bracket.
+      var marker = 'var PROPS = [';
+      var startIdx = html.indexOf(marker);
+      if (startIdx === -1) {
+        alert('Could not find property data.\nMake sure you import a file exported from this editor.');
+        return;
+      }
+      // Walk forward to find the matching ] that closes the array
+      var arrStart = startIdx + marker.length - 1; // points to the opening [
+      var depth = 0, i = arrStart, len = html.length;
+      while (i < len) {
+        var ch = html[i];
+        if (ch === '[') depth++;
+        else if (ch === ']') { depth--; if (depth === 0) break; }
+        i++;
+      }
+      var jsonStr = html.slice(arrStart, i + 1);
+      var parsed;
+      try { parsed = JSON.parse(jsonStr); }
+      catch(err) { alert('Failed to parse property data: ' + err.message); return; }
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        alert('No properties found in this file.'); return;
+      }
+      var replaceMsg = props.length > 0
+        ? ('This will replace your current ' + props.length + ' propert' + (props.length === 1 ? 'y' : 'ies') + ' with ' + parsed.length + ' from the file. Continue?')
+        : null;
+      if (replaceMsg && !confirm(replaceMsg)) return;
+
+      // Clear current map
+      props.forEach(function(p) { if (lMarkers[p.id]) map.removeLayer(lMarkers[p.id]); });
+      props = []; lMarkers = {};
+
+      // Advance id counter past imported ids
+      var maxId = 0;
+      parsed.forEach(function(p) { if (p.id > maxId) maxId = p.id; });
+      idCtr = maxId + 1;
+
+      // Render all imported properties
+      parsed.forEach(function(p) { props.push(p); renderMarker(p); });
+      renderList();
+      clearForm();
+      APP.tab('list');
+      try { map.fitBounds(L.featureGroup(Object.values(lMarkers)).getBounds().pad(0.14)); } catch(ex) {}
+      msg('✅ Imported ' + parsed.length + ' properties!', '#27ae60');
+    };
+    reader.readAsText(file);
   },
 
   // ── THE EXPORT ──────────────────────────────────────────────────────────────
