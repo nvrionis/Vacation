@@ -174,198 +174,7 @@ header p{font-size:0.68rem;color:#aac;margin-top:1px}
    It contains NO single quotes and NO backslashes that could
    conflict — it uses only double quotes and template literals.
    ==============================================================*/
-var EXPORT_TEMPLATE = `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>My Naxos Map</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Arial,sans-serif;background:#0d1b2a;color:#fff;height:100vh;display:flex;flex-direction:column}
-header{background:linear-gradient(135deg,#0d1b2a,#1a3a5c);padding:12px 20px;border-bottom:2px solid #c9a84c;flex-shrink:0}
-header h1{font-size:1rem;color:#c9a84c}
-header p{font-size:.7rem;color:#aac;margin-top:2px}
-#wrap{position:relative;flex:1;display:flex;flex-direction:column}
-#map{flex:1}
-.leaflet-popup-content-wrapper{border-radius:10px;padding:0;overflow:hidden;min-width:250px;max-width:300px}
-.leaflet-popup-content{margin:0!important}
-.ph{padding:9px 12px;font-size:.82rem;font-weight:700;color:#fff;line-height:1.3}
-.pb{padding:9px 12px 11px;background:#fff}
-.pr{display:flex;gap:5px;margin-bottom:4px;font-size:.74rem;color:#333;align-items:flex-start}
-.pi{width:100%;height:140px;object-fit:cover;display:block}
-.pl{display:block;margin-top:8px;text-align:center;padding:7px;border-radius:6px;font-size:.76rem;font-weight:700;color:#fff;text-decoration:none}
-#sb{position:absolute;top:0;right:0;width:270px;height:100%;background:#0d1b2a;border-left:2px solid #c9a84c;z-index:998;overflow-y:auto;padding:14px;transform:translateX(100%);transition:transform .3s}
-#sb.open{transform:translateX(0)}
-#sb h2{font-size:.9rem;color:#c9a84c;margin-bottom:10px;border-bottom:1px solid #334;padding-bottom:7px}
-.sc{background:#152638;border-radius:8px;margin-bottom:7px;padding:8px 10px;cursor:pointer;border:1px solid #1e3a55;border-left:4px solid #c9a84c;user-select:none}
-.sc:hover{border-top-color:#c9a84c;border-right-color:#c9a84c;border-bottom-color:#c9a84c}
-.sc.dragging{opacity:0.3;transform:scale(0.97)}
-.sc.drag-over{border-top:2px solid #c9a84c}
-.sc-r{font-size:.65rem;font-weight:800;color:#c9a84c}
-.sc-n{font-size:.75rem;font-weight:700;color:#dde;margin:2px 0}
-.sc-m{font-size:.67rem;color:#88a}
-.dh{float:right;color:#556;font-size:1rem;cursor:grab;touch-action:none;padding-left:6px}
-#tog{position:absolute;top:10px;right:10px;z-index:999;background:#1a3a5c;color:#c9a84c;border:2px solid #c9a84c;border-radius:8px;padding:6px 12px;font-size:.75rem;font-weight:700;cursor:pointer}
-::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#0d1b2a}::-webkit-scrollbar-thumb{background:#2a4a6a;border-radius:3px}
-</style>
-</head>
-<body>
-<header><h1>📍 My Naxos Map</h1><p>Tap a pin for details and to open the listing</p></header>
-<div id="wrap">
-  <div id="map"></div>
-  <button id="tog" onclick="document.getElementById('sb').classList.toggle('open')">☰ List</button>
-  <div id="sb"><h2>📋 All Properties</h2><div id="slist"></div></div>
-</div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"><\/script>
-<script>
-window.addEventListener("load", function() {
-  var PROPS = __DATA__;
 
-  var map = L.map("map", {center:[37.05,25.48],zoom:11});
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
-    attribution:"© OpenStreetMap contributors", maxZoom:18
-  }).addTo(map);
-
-  function mkIcon(color, rank) {
-    var w=38, h=46, cx=19, cy=19;
-    var svg = [
-      "<svg xmlns=\\"http://www.w3.org/2000/svg\\" width=\\""+w+"\\" height=\\""+h+"\\">",
-      "<circle cx=\\""+cx+"\\" cy=\\""+cy+"\\" r=\\"17\\" fill=\\""+color+"\\" stroke=\\"white\\" stroke-width=\\"2.5\\"/>",
-      "<text x=\\""+cx+"\\" y=\\""+(cy+5)+"\\" text-anchor=\\"middle\\" font-family=\\"Arial\\" font-size=\\"12\\" font-weight=\\"bold\\" fill=\\"white\\">"+rank+"</text>",
-      "<polygon points=\\""+(cx-5)+",37 "+(cx+5)+",37 "+cx+","+h+"\\" fill=\\""+color+"\\"/>",
-      "</svg>"
-    ].join("");
-    return L.divIcon({html:svg,iconSize:[w,h],iconAnchor:[cx,h],popupAnchor:[0,-(h+2)],className:""});
-  }
-
-  function esc(s) {
-    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-  }
-
-  var markers = [];
-  var sorted = PROPS.slice().sort(function(a,b){return a.rank-b.rank;});
-
-  sorted.forEach(function(p) {
-    var imgH = p.image ? "<img class=\\"pi\\" src=\\""+p.image+"\\" alt=\\"/>" : "";
-    var lkH  = p.url   ? "<a class=\\"pl\\" href=\\""+esc(p.url)+"\\" target=\\"_blank\\" style=\\"background:"+p.color+"\\">Open Listing →</a>" : "";
-    var rows = "";
-    if (p.location) rows += "<div class=\\"pr\\"><span>📍</span><div><b>"+esc(p.location)+"</b>"+(p.distance?" · "+esc(p.distance):"")+  "</div></div>";
-    if (p.beds)     rows += "<div class=\\"pr\\"><span>🛏</span><div>"+esc(p.beds)+"</div></div>";
-    if (p.rating)   rows += "<div class=\\"pr\\"><span>⭐</span><div><b>"+esc(p.rating)+"</b></div></div>";
-    if (p.price)    rows += "<div class=\\"pr\\"><span>💶</span><div><b>"+esc(p.price)+"</b></div></div>";
-    if (p.notes)    rows += "<div class=\\"pr\\"><span>💡</span><div>"+esc(p.notes)+"</div></div>";
-    var pop = "<div class=\\"ph\\" style=\\"background:"+p.color+"\\">#"+p.rank+" — "+esc(p.name)+"</div>"
-            + imgH
-            + "<div class=\\"pb\\">"+rows+lkH+"</div>";
-
-    var m = L.marker([p.lat,p.lng],{icon:mkIcon(p.color,p.rank)}).addTo(map);
-    m.bindPopup(pop,{maxWidth:300,minWidth:250});
-    markers.push({m:m,p:p});
-  });
-
-  if (markers.length > 1) {
-    try { map.fitBounds(L.featureGroup(markers.map(function(x){return x.m;})).getBounds().pad(0.14)); } catch(e){}
-  } else if (markers.length === 1) {
-    map.setView([sorted[0].lat, sorted[0].lng], 13);
-  }
-
-  var sl = document.getElementById("slist");
-
-  function buildSidebar(markerList) {
-    sl.innerHTML = "";
-    markerList.forEach(function(obj, idx) {
-      var d = document.createElement("div");
-      d.className = "sc";
-      d.style.borderLeftColor = obj.p.color;
-      d.setAttribute("data-idx", idx);
-      d.draggable = true;
-      d.innerHTML = "<span class=\"dh\" title=\"Drag to reorder\">⠿</span>"
-        + "<div class=\"sc-r\">#"+obj.p.rank+" · "+esc(obj.p.platform)+"</div>"
-        + "<div class=\"sc-n\">"+esc(obj.p.name)+"</div>"
-        + "<div class=\"sc-m\">"+(obj.p.location?esc(obj.p.location):"")+( obj.p.price?" · "+esc(obj.p.price):"")+( obj.p.rating?" · ⭐"+esc(obj.p.rating):"")+"</div>";
-
-      d.addEventListener("click", function(e) {
-        if (e.target.classList.contains("dh")) return;
-        map.setView([obj.p.lat,obj.p.lng],14);
-        obj.m.openPopup();
-        document.getElementById("sb").classList.remove("open");
-      });
-
-      d.addEventListener("dragstart", function(e) {
-        e.dataTransfer.setData("text/plain", String(idx));
-        e.dataTransfer.effectAllowed = "move";
-        setTimeout(function(){ d.classList.add("dragging"); }, 0);
-      });
-      d.addEventListener("dragend", function() {
-        d.classList.remove("dragging");
-        sl.querySelectorAll(".sc").forEach(function(c){ c.classList.remove("drag-over"); });
-      });
-      d.addEventListener("dragover", function(e) {
-        e.preventDefault();
-        sl.querySelectorAll(".sc").forEach(function(c){ c.classList.remove("drag-over"); });
-        d.classList.add("drag-over");
-      });
-      d.addEventListener("drop", function(e) {
-        e.preventDefault();
-        var fromIdx = parseInt(e.dataTransfer.getData("text/plain"));
-        var toIdx   = parseInt(d.getAttribute("data-idx"));
-        if (fromIdx === toIdx) return;
-        var moved = markerList.splice(fromIdx, 1)[0];
-        markerList.splice(toIdx, 0, moved);
-        markerList.forEach(function(o,i){ o.p.rank = i+1; });
-        buildSidebar(markerList);
-      });
-
-      sl.appendChild(d);
-    });
-
-    // Touch / pointer drag for mobile
-    var tDrag = null, tPh = null;
-    sl.addEventListener("pointerdown", function(e) {
-      var card = e.target.closest(".sc"), handle = e.target.closest(".dh");
-      if (!card || !handle) return;
-      e.preventDefault();
-      tDrag = card;
-      card.setPointerCapture(e.pointerId);
-      tPh = document.createElement("div");
-      tPh.style.cssText = "height:"+card.offsetHeight+"px;border:2px dashed #c9a84c;border-radius:8px;margin-bottom:7px;opacity:0.5";
-      card.classList.add("dragging");
-    }, {passive:false});
-    sl.addEventListener("pointermove", function(e) {
-      if (!tDrag) return; e.preventDefault();
-      var cards = Array.from(sl.querySelectorAll(".sc:not(.dragging)"));
-      var after = null;
-      for (var i=0;i<cards.length;i++) { var b=cards[i].getBoundingClientRect(); if (e.clientY < b.top+b.height/2) { after=cards[i]; break; } }
-      if (tPh.parentNode) tPh.parentNode.removeChild(tPh);
-      if (after) sl.insertBefore(tPh, after); else sl.appendChild(tPh);
-    }, {passive:false});
-    sl.addEventListener("pointerup", function(e) {
-      if (!tDrag) return;
-      var fromIdx = parseInt(tDrag.getAttribute("data-idx"));
-      var cards = Array.from(sl.querySelectorAll(".sc:not(.dragging)"));
-      var afterCard = null;
-      for (var i=0;i<cards.length;i++) { var b=cards[i].getBoundingClientRect(); if (e.clientY < b.top+b.height/2) { afterCard=cards[i]; break; } }
-      var toIdx = afterCard ? parseInt(afterCard.getAttribute("data-idx")) : markerList.length - 1;
-      if (fromIdx !== toIdx) {
-        var moved = markerList.splice(fromIdx, 1)[0];
-        markerList.splice(toIdx, 0, moved);
-        markerList.forEach(function(o,i){ o.p.rank = i+1; });
-      }
-      tDrag.classList.remove("dragging");
-      if (tPh.parentNode) tPh.parentNode.removeChild(tPh);
-      tDrag = null; tPh = null;
-      buildSidebar(markerList);
-    });
-  }
-
-  buildSidebar(markers);
-});
-});
-<\/script>
-</body>
-</html>`;
 
 /* ============================================================
    EDITOR APPLICATION
@@ -802,7 +611,7 @@ window.APP = {
     var json = JSON.stringify(props);
 
     // The template uses __DATA__ as a placeholder for the JSON array.
-    var output = EXPORT_TEMPLATE.replace('__DATA__', json);
+    var output = document.getElementById('exportTpl').innerHTML.replace('__DATA__', json);
 
     try {
       var blob = new Blob([output], {type:'text/html;charset=utf-8'});
@@ -823,5 +632,169 @@ document.getElementById('f-rank').value=1;
 
 }); // end load
 </script>
+<template id="exportTpl">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>My Naxos Map</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#0d1b2a;color:#fff;height:100vh;display:flex;flex-direction:column}
+header{background:linear-gradient(135deg,#0d1b2a,#1a3a5c);padding:12px 20px;border-bottom:2px solid #c9a84c;flex-shrink:0}
+header h1{font-size:1rem;color:#c9a84c}
+header p{font-size:.7rem;color:#aac;margin-top:2px}
+#wrap{position:relative;flex:1;display:flex;flex-direction:column}
+#map{flex:1}
+.leaflet-popup-content-wrapper{border-radius:10px;padding:0;overflow:hidden;min-width:250px;max-width:300px}
+.leaflet-popup-content{margin:0!important}
+.ph{padding:9px 12px;font-size:.82rem;font-weight:700;color:#fff;line-height:1.3}
+.pb{padding:9px 12px 11px;background:#fff}
+.pr{display:flex;gap:5px;margin-bottom:4px;font-size:.74rem;color:#333;align-items:flex-start}
+.pi{width:100%;height:140px;object-fit:cover;display:block}
+.pl{display:block;margin-top:8px;text-align:center;padding:7px;border-radius:6px;font-size:.76rem;font-weight:700;color:#fff;text-decoration:none}
+#sb{position:absolute;top:0;right:0;width:270px;height:100%;background:#0d1b2a;border-left:2px solid #c9a84c;z-index:998;overflow-y:auto;padding:14px;transform:translateX(100%);transition:transform .3s}
+#sb.open{transform:translateX(0)}
+#sb h2{font-size:.9rem;color:#c9a84c;margin-bottom:10px;border-bottom:1px solid #334;padding-bottom:7px}
+.sc{background:#152638;border-radius:8px;margin-bottom:7px;padding:8px 10px;border:1px solid #1e3a55;border-left:4px solid #c9a84c;user-select:none;display:flex;align-items:flex-start;gap:6px}
+.sc:hover{border-top-color:#c9a84c;border-right-color:#c9a84c;border-bottom-color:#c9a84c}
+.sc.dragging{opacity:0.3;transform:scale(0.97)}
+.sc.drag-over{border-top:2px solid #c9a84c}
+.sc-body{flex:1;min-width:0;cursor:pointer}
+.sc-r{font-size:.65rem;font-weight:800;color:#c9a84c}
+.sc-n{font-size:.75rem;font-weight:700;color:#dde;margin:2px 0}
+.sc-m{font-size:.67rem;color:#88a}
+.dh{color:#556;font-size:1.1rem;cursor:grab;touch-action:none;padding:0 2px;flex-shrink:0;margin-top:2px}
+.dh:active{cursor:grabbing}
+#tog{position:absolute;top:10px;right:10px;z-index:999;background:#1a3a5c;color:#c9a84c;border:2px solid #c9a84c;border-radius:8px;padding:6px 12px;font-size:.75rem;font-weight:700;cursor:pointer}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#0d1b2a}::-webkit-scrollbar-thumb{background:#2a4a6a;border-radius:3px}
+</style>
+</head>
+<body>
+<header>
+  <h1>&#128205; My Naxos Map</h1>
+  <p>Tap a pin for details &middot; drag &#9663; in list to reorder</p>
+</header>
+<div id="wrap">
+  <div id="map"></div>
+  <button id="tog" onclick="document.getElementById('sb').classList.toggle('open')">&#9776; List</button>
+  <div id="sb"><h2>&#128203; All Properties</h2><div id="slist"></div></div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+window.addEventListener('load', function() {
+  var PROPS = __DATA__;
+  var map = L.map('map', {center:[37.05,25.48],zoom:11});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap',maxZoom:18}).addTo(map);
+
+  function mkIcon(color, rank) {
+    var w=38,h=46,cx=19,cy=19;
+    var s='<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'">'
+      +'<circle cx="'+cx+'" cy="'+cy+'" r="17" fill="'+color+'" stroke="white" stroke-width="2.5"/>'
+      +'<text x="'+cx+'" y="'+(cy+5)+'" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="white">'+rank+'</text>'
+      +'<polygon points="'+(cx-5)+',37 '+(cx+5)+',37 '+cx+','+h+'" fill="'+color+'"/></svg>';
+    return L.divIcon({html:s,iconSize:[w,h],iconAnchor:[cx,h],popupAnchor:[0,-(h+2)],className:''});
+  }
+
+  function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+  function buildPopup(p) {
+    var imgH=p.image?'<img class="pi" src="'+p.image+'" alt=""/>':'';
+    var lkH=p.url?'<a class="pl" href="'+esc(p.url)+'" target="_blank" style="background:'+p.color+'">Open Listing</a>':'';
+    var rows='';
+    if(p.location)rows+='<div class="pr"><span>&#128205;</span><div><b>'+esc(p.location)+'</b>'+(p.distance?' &middot; '+esc(p.distance):'' )+'</div></div>';
+    if(p.beds)    rows+='<div class="pr"><span>&#127956;</span><div>'+esc(p.beds)+'</div></div>';
+    if(p.rating)  rows+='<div class="pr"><span>&#11088;</span><div><b>'+esc(p.rating)+'</b></div></div>';
+    if(p.price)   rows+='<div class="pr"><span>&#128182;</span><div><b>'+esc(p.price)+'</b></div></div>';
+    if(p.notes)   rows+='<div class="pr"><span>&#128161;</span><div>'+esc(p.notes)+'</div></div>';
+    return '<div class="ph" style="background:'+p.color+'">#'+p.rank+' &mdash; '+esc(p.name)+'</div>'+imgH+'<div class="pb">'+rows+lkH+'</div>';
+  }
+
+  var sorted=PROPS.slice().sort(function(a,b){return a.rank-b.rank;});
+  var markers=[];
+  sorted.forEach(function(p){
+    var m=L.marker([p.lat,p.lng],{icon:mkIcon(p.color,p.rank)}).addTo(map);
+    m.bindPopup(buildPopup(p),{maxWidth:300,minWidth:250});
+    markers.push({m:m,p:p});
+  });
+  if(markers.length>1){try{map.fitBounds(L.featureGroup(markers.map(function(x){return x.m;})).getBounds().pad(0.14));}catch(e){}}
+  else if(markers.length===1){map.setView([sorted[0].lat,sorted[0].lng],13);}
+
+  var sl=document.getElementById('slist');
+
+  function buildSidebar(list) {
+    sl.innerHTML='';
+    list.forEach(function(obj,i){
+      var d=document.createElement('div');
+      d.className='sc';
+      d.style.borderLeftColor=obj.p.color;
+      d.dataset.i=i;
+      d.draggable=true;
+
+      var handle=document.createElement('span');
+      handle.className='dh';
+      handle.title='Drag to reorder';
+      handle.textContent='⠿';
+      d.appendChild(handle);
+
+      var body=document.createElement('div');
+      body.className='sc-body';
+      body.innerHTML='<div class="sc-r">#'+obj.p.rank+' &middot; '+esc(obj.p.platform)+'</div>'
+        +'<div class="sc-n">'+esc(obj.p.name)+'</div>'
+        +'<div class="sc-m">'+(obj.p.location?esc(obj.p.location):'')+(obj.p.price?' &middot; '+esc(obj.p.price):'')+(obj.p.rating?' &middot; '+esc(obj.p.rating):'')+'</div>';
+      body.onclick=function(){map.setView([obj.p.lat,obj.p.lng],14);obj.m.openPopup();document.getElementById('sb').classList.remove('open');};
+      d.appendChild(body);
+
+      d.addEventListener('dragstart',function(e){e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',String(i));setTimeout(function(){d.classList.add('dragging');},0);});
+      d.addEventListener('dragend',function(){d.classList.remove('dragging');sl.querySelectorAll('.sc').forEach(function(c){c.classList.remove('drag-over');});});
+      d.addEventListener('dragover',function(e){e.preventDefault();sl.querySelectorAll('.sc').forEach(function(c){c.classList.remove('drag-over');});d.classList.add('drag-over');});
+      d.addEventListener('drop',function(e){
+        e.preventDefault();
+        var from=parseInt(e.dataTransfer.getData('text/plain')),to=i;
+        if(from===to)return;
+        var moved=list.splice(from,1)[0];list.splice(to,0,moved);
+        list.forEach(function(o,n){o.p.rank=n+1;});
+        buildSidebar(list);
+      });
+      sl.appendChild(d);
+    });
+
+    var tDrag=null,tPh=null;
+    sl.addEventListener('pointerdown',function(e){
+      var card=e.target.closest('.sc'),dh=e.target.closest('.dh');
+      if(!card||!dh)return;e.preventDefault();
+      tDrag=card;card.setPointerCapture(e.pointerId);
+      tPh=document.createElement('div');
+      tPh.style.cssText='height:'+card.offsetHeight+'px;border:2px dashed #c9a84c;border-radius:8px;margin-bottom:7px;opacity:0.5';
+      card.classList.add('dragging');
+    },{passive:false});
+    sl.addEventListener('pointermove',function(e){
+      if(!tDrag)return;e.preventDefault();
+      var cs=Array.from(sl.querySelectorAll('.sc:not(.dragging)')),after=null;
+      for(var k=0;k<cs.length;k++){var b=cs[k].getBoundingClientRect();if(e.clientY<b.top+b.height/2){after=cs[k];break;}}
+      if(tPh.parentNode)tPh.parentNode.removeChild(tPh);
+      if(after)sl.insertBefore(tPh,after);else sl.appendChild(tPh);
+    },{passive:false});
+    sl.addEventListener('pointerup',function(e){
+      if(!tDrag)return;
+      var from=parseInt(tDrag.dataset.i);
+      var cs=Array.from(sl.querySelectorAll('.sc:not(.dragging)')),afterCard=null;
+      for(var k=0;k<cs.length;k++){var b=cs[k].getBoundingClientRect();if(e.clientY<b.top+b.height/2){afterCard=cs[k];break;}}
+      var to=afterCard?parseInt(afterCard.dataset.i):list.length-1;
+      if(from!==to){var moved=list.splice(from,1)[0];list.splice(to,0,moved);list.forEach(function(o,n){o.p.rank=n+1;});}
+      tDrag.classList.remove('dragging');
+      if(tPh&&tPh.parentNode)tPh.parentNode.removeChild(tPh);
+      tDrag=null;tPh=null;buildSidebar(list);
+    });
+  }
+
+  buildSidebar(markers);
+});
+</script>
+</body>
+</html>
+</template>
 </body>
 </html>
